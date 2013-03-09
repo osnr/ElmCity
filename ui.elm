@@ -6,48 +6,82 @@ cropImage url origWidth origHeight left top width height =
 
 replicate n x = if n == 0
                    then []
-                   else x : replicate (n - 1) x
+                   else x :: replicate (n - 1) x
 
 cropTileset tx ty = toForm (8, 8) $ cropImage "sprites/tileset1x.png" 256 960 (16 * tx) (16 * ty) 16 16
 
 data Tile = Dirt | Water | Coast
 
-mapWidth = 10
-mapHeight = 10
+defaultMapWidth = 10
+defaultMapHeight = 10
 
-mapTiles = replicate mapHeight $ replicate mapWidth Dirt
+defaultMapTiles = replicate defaultMapHeight $ replicate defaultMapWidth Dirt
 
 tileToSprite t = case t of
-                      Dirt -> cropTileset 0 0
-                      Water -> cropTileset 2 0
+                      Dirt -> toForm (8, 8) $ image 16 16 "sprites/tiles-0.png"-- cropTileset 0 0
+                      Water -> toForm (8, 8) $ image 16 16 "sprites/tiles-2.png" -- cropTileset 2 0
 
 {- reactive part -}
+data DragState = Rest | Hover | Drag (Int, Int)
+
 delta = lift inSeconds (fps 30)
 
-{- rendering part -}
+-- stepDragMapView :: ((Int, Int), Bool) -> ((Int, Int), Form, DragState) -> DragState
+stepDragMapView ((mx, my), mouseDown) ((px, py), view, state) =
+                let mouseInMap = isWithin (mx, my) view in
+                case state of
+                     Rest -> ( (px, py),
+                               view,
+                               if mouseInMap && not mouseDown
+                                  then Hover
+                                  else Rest
+                             )
+                     Hover -> ( (px, py),
+                                view,
+                                if mouseDown
+                                   then Drag (px - mx, py - my)
+                                else if mouseInMap && not mouseDown
+                                        then Hover
+                                        else Rest
+                              )
+                     Drag (ox, oy) -> ( (mx + ox, my + oy),
+                                        move ox oy view,
+                                        if mouseDown
+                                           then Drag (ox, oy)
+                                           else Hover
+                                      )
 
--- horrifying
 zipCoords rs = let rsWithX = map (\r -> zip r [0..length r - 1]) rs in
                zipWith (\r y -> zipWith (\(t, x) y -> (t, x, y)) r $ replicate (length r) y) rsWithX [0..length rsWithX]
 
-mapViewTiles = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords mapTiles
-mapView = collage 300 300
+mapViewTiles rs = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords rs
+mapView (x, y) ts = toForm (80 + x, 80 + y) $ collage 160 160 ts
 
-leftPane = layers [mapView mapViewTiles]
+main = collage 500 500 $ mapView (0, 0) $ mapViewTiles defaultMapTiles
 
-{- right pane -}
-zones = [{ name = "Residential", shortName = "R" },
-         { name = "Commercial", shortName = "C" },
-         { name = "Industrial", shortName = "I" }]
+-- main = plainText $ concat $ map (\(t, x, y) -> case t of Dirt -> "; dirt, " ++ show x ++ ", " ++ show y) $ concat $ zipCoords defaultMapTiles
 
-services = [{ name = "Police Station", shortName = "PD" },
-            { name = "Fire Department", shortName = "FD" }]
+-- dragMapView initPos = lift (\(p, view, state) -> view)
+--                     $ foldp stepDragMapView (initPos, mapView initPos $ mapViewTiles defaultMapTiles, Rest)
+--                     $ lift2 (\a b -> (a, b)) Mouse.position Mouse.isDown
 
-transports = [{ name = "Road", shortName = "Rd" },
-              { name = "Railroad", shortName = "RR" }]
+-- main = collage 1000 1000 $ dragMapView (0, 0)
 
-elementRows = map (flow right . map (fst . Input.button . .shortName)) [zones, services, transports]
+-- leftPane = layers [mapView mapViewTiles]
 
-rightPane = flow down elementRows
+-- {- right pane -}
+-- zones = [{ name = "Residential", shortName = "R" },
+--          { name = "Commercial", shortName = "C" },
+--          { name = "Industrial", shortName = "I" }]
 
-main = flow right [leftPane, rightPane]
+-- services = [{ name = "Police Station", shortName = "PD" },
+--             { name = "Fire Department", shortName = "FD" }]
+
+-- transports = [{ name = "Road", shortName = "Rd" },
+--               { name = "Railroad", shortName = "RR" }]
+
+-- elementRows = map (flow right . map (fst . Input.button . .shortName)) [zones, services, transports]
+
+-- rightPane = flow down elementRows
+
+-- main = flow right [leftPane, rightPane]
