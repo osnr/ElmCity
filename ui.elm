@@ -16,6 +16,7 @@ defaultMapWidth = 10
 defaultMapHeight = 10
 
 defaultMapTiles = replicate defaultMapHeight $ replicate defaultMapWidth Dirt
+defaultMapViewTiles = mapViewTiles defaultMapTiles
 
 tileToSprite t = case t of
                       Dirt -> cropTileset 0 0
@@ -23,8 +24,6 @@ tileToSprite t = case t of
 
 {- reactive part -}
 data DragState = Rest | Hover | Drag (Int, Int)
-
-delta = lift inSeconds (fps 30)
 
 -- stepDragMapView :: ((Int, Int), Bool) -> ((Int, Int), Form, DragState) -> DragState
 stepDragMapView ((mx, my), mouseDown) ((px, py), view, state) =
@@ -55,17 +54,17 @@ zipCoords rs = let rsWithX = map (\r -> zip r [0..length r - 1]) rs in
                zipWith (\r y -> zipWith (\(t, x) y -> (t, x, y)) r $ replicate (length r) y) rsWithX [0..length rsWithX]
 
 mapViewTiles rs = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords rs
-mapView (x, y) ts = toForm (80 + x, 80 + y) $ collage 160 160 ts
+mapView (x, y) ts = toForm (80 + x, 80 + y) $ color red $ collage 180 180 ts
 
-main = color blue $ collage 500 500 [mapView (0, 0) $ mapViewTiles defaultMapTiles]
+-- main = color blue $ collage 500 500 [mapView (0, 0) $ mapViewTiles defaultMapTiles]
 
 -- main = plainText $ concat $ map (\(t, x, y) -> case t of Dirt -> "; dirt, " ++ show x ++ ", " ++ show y) $ concat $ zipCoords defaultMapTiles
 
--- dragMapView initPos = lift (\(p, view, state) -> view)
---                     $ foldp stepDragMapView (initPos, mapView initPos $ mapViewTiles defaultMapTiles, Rest)
---                     $ lift2 (\a b -> (a, b)) Mouse.position Mouse.isDown
+dragMapView initPos = lift (\(p, view, state) -> view)
+                    $ foldp stepDragMapView (initPos, mapView initPos defaultMapViewTiles, Rest)
+                    $ lift2 (\a b -> (a, b)) Mouse.position Mouse.isDown
 
--- main = collage 1000 1000 $ dragMapView (0, 0)
+main = lift (\view -> color blue $ collage 500 500 [view]) $ dragMapView (0, 0)
 
 -- leftPane = layers [mapView mapViewTiles]
 
