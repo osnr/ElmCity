@@ -44,7 +44,7 @@ stepDragMapView ((mx, my), mouseDown) ((px, py), view, state) =
                                         else Rest
                               )
                      Drag (ox, oy) -> ( (mx + ox, my + oy),
-                                        move ox oy view,
+                                        mapView (mx + ox, my + oy) defaultMapViewTiles,
                                         if mouseDown
                                            then Drag (ox, oy)
                                            else Hover
