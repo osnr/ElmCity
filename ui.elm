@@ -18,8 +18,8 @@ defaultMapHeight = 10
 defaultMapTiles = replicate defaultMapHeight $ replicate defaultMapWidth Dirt
 
 tileToSprite t = case t of
-                      Dirt -> toForm (8, 8) $ image 16 16 "sprites/tiles-0.png"-- cropTileset 0 0
-                      Water -> toForm (8, 8) $ image 16 16 "sprites/tiles-2.png" -- cropTileset 2 0
+                      Dirt -> cropTileset 0 0
+                      Water -> cropTileset 2 0
 
 {- reactive part -}
 data DragState = Rest | Hover | Drag (Int, Int)
@@ -57,7 +57,7 @@ zipCoords rs = let rsWithX = map (\r -> zip r [0..length r - 1]) rs in
 mapViewTiles rs = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords rs
 mapView (x, y) ts = toForm (80 + x, 80 + y) $ collage 160 160 ts
 
-main = collage 500 500 $ mapView (0, 0) $ mapViewTiles defaultMapTiles
+main = color blue $ collage 500 500 [mapView (0, 0) $ mapViewTiles defaultMapTiles]
 
 -- main = plainText $ concat $ map (\(t, x, y) -> case t of Dirt -> "; dirt, " ++ show x ++ ", " ++ show y) $ concat $ zipCoords defaultMapTiles
 
