@@ -1,3 +1,5 @@
+import Automaton
+
 {- presets -}
 -- from https://groups.google.com/forum/#!msg/elm-discuss/hEfUdISni1M/bUqce1WllNMJ
 cropImage url origWidth origHeight left top width height = 
@@ -23,33 +25,6 @@ tileToSprite t = case t of
                       Water -> cropTileset 2 0
 
 {- reactive part -}
-data DragState = Rest | Hover | Drag (Int, Int)
-
--- stepDragMapView :: ((Int, Int), Bool) -> ((Int, Int), Form, DragState) -> DragState
-stepDragMapView ((mx, my), mouseDown) ((px, py), view, state) =
-                let mouseInMap = isWithin (mx, my) view in
-                case state of
-                     Rest -> ( (px, py),
-                               view,
-                               if mouseInMap && not mouseDown
-                                  then Hover
-                                  else Rest
-                             )
-                     Hover -> ( (px, py),
-                                view,
-                                if mouseDown
-                                   then Drag (px - mx, py - my)
-                                else if mouseInMap && not mouseDown
-                                        then Hover
-                                        else Rest
-                              )
-                     Drag (ox, oy) -> ( (mx + ox, my + oy),
-                                        mapView (mx + ox, my + oy) defaultMapViewTiles,
-                                        if mouseDown
-                                           then Drag (ox, oy)
-                                           else Hover
-                                      )
-
 zipCoords rs = let rsWithX = map (\r -> zip r [0..length r - 1]) rs in
                zipWith (\r y -> zipWith (\(t, x) y -> (t, x, y)) r $ replicate (length r) y) rsWithX [0..length rsWithX]
 
@@ -60,11 +35,11 @@ mapView (x, y) ts = toForm (80 + x, 80 + y) $ color red $ collage 180 180 ts
 
 -- main = plainText $ concat $ map (\(t, x, y) -> case t of Dirt -> "; dirt, " ++ show x ++ ", " ++ show y) $ concat $ zipCoords defaultMapTiles
 
-dragMapView initPos = lift (\(p, view, state) -> view)
-                    $ foldp stepDragMapView (initPos, mapView initPos defaultMapViewTiles, Rest)
-                    $ lift2 (\a b -> (a, b)) Mouse.position Mouse.isDown
+dragMapView initPos = Automaton.run (draggable
+                      (mapView (0, 0) defaultMapViewTiles))
+                      $ lift2 (\a b -> (a, b)) Mouse.isDown Mouse.position
 
-main = lift (\view -> color blue $ collage 500 500 [view]) $ dragMapView (0, 0)
+main = (\view -> color blue $ collage 500 500 [view]) <~ dragMapView (0, 0)
 
 -- leftPane = layers [mapView mapViewTiles]
 
