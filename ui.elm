@@ -18,44 +18,54 @@ defaultMapWidth = 10
 defaultMapHeight = 10
 
 defaultMapTiles = replicate defaultMapHeight $ replicate defaultMapWidth Dirt
-defaultMapViewTiles = mapViewTiles defaultMapTiles
 
+{- view -}
 tileToSprite t = case t of
                       Dirt -> cropTileset 0 0
                       Water -> cropTileset 2 0
 
-{- reactive part -}
 zipCoords rs = let rsWithX = map (\r -> zip r [0..length r - 1]) rs in
                zipWith (\r y -> zipWith (\(t, x) y -> (t, x, y)) r $ replicate (length r) y) rsWithX [0..length rsWithX]
 
-mapViewTiles rs = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords rs
-mapView (x, y) ts = toForm (80 + x, 80 + y) $ color red $ collage 180 180 ts
+drawMapTiles rs = map (\(t, x, y) -> move (16 * x) (16 * y) $ tileToSprite t) $ concat $ zipCoords rs
 
--- main = color blue $ collage 500 500 [mapView (0, 0) $ mapViewTiles defaultMapTiles]
+drawMapView (x, y) ts = toForm (80 + x, 80 + y) . color red $ collage 180 180 ts
 
--- main = plainText $ concat $ map (\(t, x, y) -> case t of Dirt -> "; dirt, " ++ show x ++ ", " ++ show y) $ concat $ zipCoords defaultMapTiles
+{- reactive part (controller?) -}
+-- toolMapView :: Form -> Bool -> Form
+toolMapView mv isDown = if isDown then (rotate 0.2 mv) else mv
 
-dragMapView initPos = Automaton.run (draggable
-                      (mapView (0, 0) defaultMapViewTiles))
-                      $ lift2 (\a b -> (a, b)) Mouse.isDown Mouse.position
+-- draggable :: Form -> Automaton (Bool,(Int,Int)) Form
+defaultToolView initPos = let mv = drawMapView initPos $ drawMapTiles defaultMapTiles in
+                              Automaton.run (draggable mv >>^ toolMapView)
+                                            (lift2 (\a b -> (a, b)) Mouse.isDown Mouse.position)
+                                            ~ Mouse.isDown
 
-main = (\view -> color blue $ collage 500 500 [view]) <~ dragMapView (0, 0)
+-- defaultToolView (0, 0) :: Signal Form
 
--- leftPane = layers [mapView mapViewTiles]
+-- draggable <~ defaultToolView (0, 0) :: Signal (Automaton (Bool,(Int,Int)) Form)
+-- Automaton.run <~ (draggable <~ defaultToolView (0, 0)) :: Signal (Signal (Bool, Int) -> Signal Form)
 
--- {- right pane -}
--- zones = [{ name = "Residential", shortName = "R" },
---          { name = "Commercial", shortName = "C" },
---          { name = "Industrial", shortName = "I" }]
+-- dragMapView initPos = (Automaton.run <~ (draggable <~ defaultToolView (0, 0)))
+--                     ~ lift2 (\a b -> (a, b)) Mouse.isDown Mouse.position
 
--- services = [{ name = "Police Station", shortName = "PD" },
---             { name = "Fire Department", shortName = "FD" }]
+-- lift2 Automaton.run :: Signal (Automaton (Bool,Int) Form) -> Signal (Signal (Bool,Int)) -> Signal (Signal Form)
 
--- transports = [{ name = "Road", shortName = "Rd" },
---               { name = "Railroad", shortName = "RR" }]
+leftPane = (\view -> color blue $ collage 500 500 [view]) <~ defaultToolView (0, 0)
 
--- elementRows = map (flow right . map (fst . Input.button . .shortName)) [zones, services, transports]
+{- right pane -}
+zones = [{ name = "Residential", shortName = "R" },
+         { name = "Commercial", shortName = "C" },
+         { name = "Industrial", shortName = "I" }]
 
--- rightPane = flow down elementRows
+services = [{ name = "Police Station", shortName = "PD" },
+            { name = "Fire Department", shortName = "FD" }]
 
--- main = flow right [leftPane, rightPane]
+transports = [{ name = "Road", shortName = "Rd" },
+              { name = "Railroad", shortName = "RR" }]
+
+elementRows = map (flow right . map (fst . Input.button . .shortName)) [zones, services, transports]
+
+rightPane = flow down elementRows
+
+main = (\l -> flow right [l, rightPane]) <~ leftPane
