@@ -14,16 +14,14 @@ drawMapView ts = let cWidth = 10 * 16 in
                  let cHeight = 10 * 16 in
                  toForm (cWidth / 2, cHeight / 2) . collage cWidth cHeight $ drawMapTiles ts
 
-{- reactive part (controller?) -}
 data PanState = PanListen | PanIgnore | PanFrom (Int,Int)
 
--- using drag state knowledge, convert an absolute mouse pos to a tile x and y
-tileForMousePos (fx, fy) (mx, my) = (floor $ (mx - fx) / 16, floor $ (my - fy) / 16)
+tileForMousePos (fx, fy) (mx, my) = ((mx - fx) `div` 16, (my - fy) `div` 16)
 
 vecAdd (x1,y1) (x2,y2) = (x1+x2,y1+y2)
 vecSub (x1,y1) (x2,y2) = (x1-x2,y1-y2)
 -- doPan :: Form -> (Int,Int) -> (Int,Int) -> Bool -> PanState -> (Form,(Int,Int),PanState)
-doPan form formPos pos press pans = case pans of -- FIXME annoying that I need to rebuild from ts
+doPan form formPos pos press pans = case pans of
       PanListen -> (form, formPos,
                     if | not press -> PanListen
                        | pos `isWithin` form -> PanFrom pos
@@ -35,8 +33,7 @@ doPan form formPos pos press pans = case pans of -- FIXME annoying that I need t
                              PanFrom pos)
                        else (form, formPos, PanListen)
 
--- stateful automaton
--- mouseOnMapStep :: (Tool,(Int,Int),Bool) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState)
+-- stepMouseOnMap :: (Tool,(Int,Int),Bool) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState)
 stepMouseOnMap (tool, pos, press) (ts, form, formPos, pans) =
                if tool.shortName == "Pan"
                   then let (form', formPos', pans') = doPan form formPos pos press pans in
