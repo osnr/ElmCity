@@ -19,8 +19,8 @@ data Position9 = TopLeft | TopCenter | TopRight |
                  BottomLeft | BottomCenter | BottomRight
 
 data Tile = Dirt | Water | Coast
-          | Residential Position4 | Commercial Position4 | Industrial Position4
-          | PoliceDept Position4 | FireDept Position4
+          | Residential Position9 | Commercial Position9 | Industrial Position9
+          | PoliceDept Position9 | FireDept Position9
           | Road | Railroad
 
 defaultMapWidth = 10
@@ -57,7 +57,9 @@ defaultMapGrid = mapGrid defaultMapTiles
 
 drawMapTiles ts = map (\((tx, ty), t) -> move (16 * tx) (16 * ty) $ tileToSprite t) $ Dict.toList ts
 -- main = plainText . show $ Dict.toList defaultMapGrid
-drawMapView ts = toForm (80, 80) . color red . collage 180 180 $ drawMapTiles ts
+drawMapView ts = let cWidth = defaultMapWidth * 16 in
+                 let cHeight = defaultMapHeight * 16 in
+                 toForm (cWidth / 2, cHeight / 2) . collage cWidth cHeight $ drawMapTiles ts
 
 {- reactive part (controller?) -}
 data PanState = PanListen (Float,Float) | PanIgnore (Float,Float) | PanFrom (Float,Float)
@@ -93,7 +95,7 @@ defaultMapAutomaton = init (defaultMapGrid, PanListen (0, 0), drawMapView defaul
                            stepMouseOnMap
 
 -- defaultMapPane :: Signal Tool -> Signal Form
-defaultMapPane tool = lift (\(ts, pans, form) -> collage 200 200 [form])
+defaultMapPane tool = lift (\(ts, pans, form) -> collage 500 500 [form])
                            $ Automaton.run defaultMapAutomaton
                                            $ lift3 (\a b c -> (a, b, c))
                                                    tool Mouse.position Mouse.isDown
