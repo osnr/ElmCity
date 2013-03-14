@@ -1,5 +1,8 @@
 module MapPane where
 
+import Util
+import Tiles
+
 -- zipCoords :: [[Tile]] -> [[(Int,Int,Tile)]]
 zipCoords rs = let rsWithX = map (\r -> zip [0..length r - 1] r) rs in
                    zipWith (\r y -> zipWith (\(x, t) y -> ((x, y), t)) r
@@ -47,11 +50,11 @@ stepMouseOnMap (tool, pos, press) (ts, form, formPos, pans) =
 
 -- mapAutomaton :: [[Tile]] -> Automaton (Tool,(Int,Int),Bool) (Dict (Int,Int) Tile,Form,(Int,Int),PanState)
 mapAutomaton rs = let g = mapGrid rs in
-                  init (g, drawMapView g, (0, 0), PanListen)
-                       stepMouseOnMap
+                  Automaton.init (g, drawMapView g, (0, 0), PanListen)
+                                 stepMouseOnMap
 
 -- mapPane :: [[Tile]] -> Signal Tool -> Signal Form
-mapPane rs tool = lift (\(_, form, _, _) -> collage 500 500 [form])
-                       $ Automaton.run (mapAutomaton rs)
-                                       $ lift3 (\a b c -> (a, b, c))
-                                               tool Mouse.position Mouse.isDown
+mapPane rs toolS = lift (\(_, form, _, _) -> collage 500 500 [form])
+                        $ Automaton.run (mapAutomaton rs)
+                                        $ lift3 (\a b c -> (a, b, c))
+                                                toolS Mouse.position Mouse.isDown

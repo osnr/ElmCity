@@ -6,12 +6,8 @@ cropImage url origWidth origHeight left top width height =
           collage width height 
                   [sprite url origWidth origHeight (origWidth `div` 2 - left, origHeight `div` 2 - top)]
 
-replicate n x = if n == 0
-                   then []
-                   else x :: replicate (n - 1) x
-
 cropTileset tx ty = toForm (8, 8)
-                  $ cropImage "sprites/tileset1x.png"
+                  $ cropImage "../sprites/tileset1x.png"
                               256 960 (16 * tx) (16 * ty) 16 16
 
 data Position9 = TopLeft | TopCenter | TopRight |
