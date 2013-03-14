@@ -14,7 +14,9 @@ cropTileset tx ty = toForm (8, 8)
                   $ cropImage "sprites/tileset1x.png"
                               256 960 (16 * tx) (16 * ty) 16 16
 
-data Position4 = TopLeft | TopRight | BottomLeft | BottomRight
+data Position9 = TopLeft | TopCenter | TopRight |
+                 CenterLeft | Center | CenterRight |
+                 BottomLeft | BottomCenter | BottomRight
 
 data Tile = Dirt | Water | Coast
           | Residential Position4 | Commercial Position4 | Industrial Position4
@@ -32,6 +34,18 @@ defaultMapTiles = replicate defaultMapHeight
 tileToSprite t = case t of
                       Dirt -> cropTileset 0 0
                       Water -> cropTileset 2 0
+
+                      Residential TopLeft -> cropTileset 0 15
+                      Residential TopCenter -> cropTileset 1 15
+                      Residential TopRight -> cropTileset 2 15
+
+                      Residential CenterLeft -> cropTileset 3 15
+                      Residential Center -> cropTileset 4 15
+                      Residential CenterRight -> cropTileset 5 15
+
+                      Residential BottomLeft -> cropTileset 6 15
+                      Residential BottomCenter -> cropTileset 7 15
+                      Residential BottomRight -> cropTileset 8 15
 
 -- zipCoords :: [[Tile]] -> [[(Int,Int,Tile)]]
 zipCoords rs = let rsWithX = map (\r -> zip [0..length r - 1] r) rs in
@@ -71,20 +85,18 @@ stepMouseOnMap (tool, pos, isDown) (ts, pans, form) =
                           then let (pans', form') = doPan pos pans ts form in
                                (ts, pans', form')
                           else let ts' = tool.apply ts $ tileForMousePos pans pos in
-                               (ts',
-                                pans,
-                                drawMapView ts')
+                               (ts', pans, drawMapView ts')
                   else (ts, pans, form)
 
 -- defaultMapAutomaton :: Automaton (Tool,(Int,Int),Bool) (Dict (Int,Int) Tile,PanState,Form)
 defaultMapAutomaton = init (defaultMapGrid, PanListen (0, 0), drawMapView defaultMapGrid)
                            stepMouseOnMap
 
--- defaultToolView :: Signal Tool -> Signal Form
-
-defaultToolView tool = lift (\(ts, pans, form) -> form)
-                            $ Automaton.run defaultMapAutomaton
-                                            $ lift3 (\a b c -> (a, b, c)) tool Mouse.position Mouse.isDown
+-- defaultMapPane :: Signal Tool -> Signal Form
+defaultMapPane tool = lift (\(ts, pans, form) -> collage 200 200 [form])
+                           $ Automaton.run defaultMapAutomaton
+                                           $ lift3 (\a b c -> (a, b, c))
+                                                   tool Mouse.position Mouse.isDown
 
 -- defaultToolView = constant $ drawMapView defaultMapGrid
 
@@ -102,37 +114,32 @@ defaultToolView tool = lift (\(ts, pans, form) -> form)
 
 {- right pane -}
 -- fourSquare :: Tile -> (Int,Int) -> Dict (Int,Int) Tile
-fourSquare t p = Dict.fromList [(p, t TopLeft), ((fst p, snd p + 1), t TopRight),
-                                ((fst p + 1, snd p), t BottomLeft), ((fst p + 1, snd p + 1), t BottomRight)]
+nineSquare t (tx, ty) = Dict.fromList [((tx, ty), t TopLeft), ((tx + 1, ty), t TopCenter), ((tx + 2, ty), t TopRight),
+                                       ((tx, ty + 1), t CenterLeft), ((tx + 1, ty + 1), t Center), ((tx + 2, ty + 1), t CenterRight),
+                                       ((tx, ty + 2), t BottomLeft), ((tx + 1, ty + 2), t BottomCenter), ((tx + 2, ty + 2), t BottomRight)]
 
-applyFour t ts p = Dict.union (fourSquare t p) ts
+applyNine t ts p = Dict.union (nineSquare t p) ts
 
 -- apply :: Dict (Int,Int) Tile -> (Int,Int) -> Dict (Int,Int) Tile
 pan = { name = "Pan", shortName = "Pan", size = (0-1, 0-1), apply ts p = ts }
 controls = [pan]
 
-zones = [{ name = "Residential", shortName = "R", size = (2, 2),
-           apply = applyFour Residential },
-         { name = "Commercial", shortName = "C", size = (2, 2),
-           apply = applyFour Commercial },
-         { name = "Industrial", shortName = "I", size = (2, 2),
-           apply = applyFour Industrial }]
+zones = [{ name = "Residential", shortName = "R", size = (3, 3),
+           apply = applyNine Residential },
+         { name = "Commercial", shortName = "C", size = (3, 3),
+           apply = applyNine Commercial },
+         { name = "Industrial", shortName = "I", size = (3, 3),
+           apply = applyNine Industrial }]
 
-services = [{ name = "Police Station", shortName = "PD", size = (2, 2),
-              apply = applyFour PoliceDept },
-            { name = "Fire Department", shortName = "FD", size = (2, 2),
-              apply = applyFour FireDept }]
+services = [{ name = "Police Station", shortName = "PD", size = (3, 3),
+              apply = applyNine PoliceDept },
+            { name = "Fire Department", shortName = "FD", size = (3, 3),
+              apply = applyNine FireDept }]
 
 transports = [{ name = "Road", shortName = "Rd", size = (1, 1),
                 apply ts p = insert p Road ts },
               { name = "Railroad", shortName = "RR", size = (1, 1),
                 apply ts p = insert p Railroad ts }]
-
--- [[Tool]] -> [[(Element, Signal Bool)]]
--- unzip into [[Element]] and [[Signal Bool]]
--- flow out the elements
--- concat, zip together [Signal Bool] and [Tool]
--- [(Tool, Signal Bool)] -> Signal Tool
 
 -- toolRow :: [Tool] -> (Element,[(Tool,Signal Bool)])
 toolRow tools = let (buttons, presses) = unzip $ map (Input.button . .shortName) tools in
@@ -153,9 +160,7 @@ toolBox tlrs = let (elementRows, tlss) = unzip $ map toolRow tlrs in
 
 defaultToolBox = toolBox [controls, zones, services, transports]
 
-main = (\tool -> flow right $ [fst defaultToolBox, plainText tool.name]) <~ snd defaultToolBox
-
---rightPane = flow down elementRows
-
---main = (\l -> flow right [l, rightPane]) <~ leftPane
+main = let (toolPane, toolS) = defaultToolBox in
+       lift2 (\mapPane tool -> flow right [mapPane, toolPane, plainText tool.name]) (defaultMapPane toolS) toolS
+-- main = (\tool -> flow right [defaultToolView tool, fst defaultToolBox, plainText tool.name]) <~
 --}
