@@ -62,40 +62,43 @@ drawMapView ts = let cWidth = defaultMapWidth * 16 in
                  toForm (cWidth / 2, cHeight / 2) . collage cWidth cHeight $ drawMapTiles ts
 
 {- reactive part (controller?) -}
-data PanState = PanListen (Float,Float) | PanIgnore (Float,Float) | PanFrom (Float,Float)
-
-mapPos pans = case pans of
-                   PanListen p -> p
-                   PanIgnore p -> p
-                   PanFrom p -> p
+data PanState = PanListen | PanIgnore | PanFrom (Int,Int)
 
 -- using drag state knowledge, convert an absolute mouse pos to a tile x and y
-tileForMousePos pans (px, py) = let (mx, my) = mapPos pans in
-                                (floor $ (px - mx) / 16, floor $ (py - my) / 16)
+tileForMousePos (fx, fy) (mx, my) = (floor $ (mx - fx) / 16, floor $ (my - fy) / 16)
 
--- doPan :: (Int,Int) -> PanState -> Form -> (PanState,Form)
-doPan pos pans ts form = case pans of -- FIXME annoying that I need to rebuild from ts
-                              PanListen _ -> (PanFrom pos, form)
-                              PanIgnore p0 -> (PanIgnore p0, form)
-                              PanFrom p0 -> (PanListen pos, uncurry move pos $ drawMapView ts)
+vecAdd (x1,y1) (x2,y2) = (x1+x2,y1+y2)
+vecSub (x1,y1) (x2,y2) = (x1-x2,y1-y2)
+-- doPan :: Form -> (Int,Int) -> (Int,Int) -> Bool -> PanState -> (Form,(Int,Int),PanState)
+doPan form formPos pos press pans = case pans of -- FIXME annoying that I need to rebuild from ts
+                                         PanListen -> (form, formPos,
+                                                       if | not press -> PanListen
+                                                          | pos `isWithin` form -> PanFrom pos
+                                                          | otherwise -> PanIgnore)
+                                         PanIgnore -> (form, formPos, if press then PanIgnore else PanListen)
+                                         PanFrom p0 ->
+                                                 if press then (uncurry move (vecSub pos p0) form, vecAdd formPos (vecSub pos p0), PanFrom pos)
+                                                          else (form, formPos, PanListen)
 
 -- stateful automaton
--- mouseOnMapStep :: (Tool,(Int,Int),Bool) -> (Dict (Int,Int) Tile,PanState,Form) -> (Dict (Int,Int) Tile,PanState,Form)
-stepMouseOnMap (tool, pos, isDown) (ts, pans, form) =
-               if isDown && pos `isWithin` form
-                  then if tool.shortName == "Pan"
-                          then let (pans', form') = doPan pos pans ts form in
-                               (ts, pans', form')
-                          else let ts' = tool.apply ts $ tileForMousePos pans pos in
-                               (ts', pans, drawMapView ts')
-                  else (ts, pans, form)
+-- mouseOnMapStep :: (Tool,(Int,Int),Bool) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState) -> (Dict (Int,Int) Tile,Form,(Int,Int),PanState)
+stepMouseOnMap (tool, pos, press) (ts, form, formPos, pans) =
+               if tool.shortName == "Pan"
+                  then let (form', formPos', pans') = doPan form formPos pos press pans in
+                       (ts, form', formPos', pans')
 
--- defaultMapAutomaton :: Automaton (Tool,(Int,Int),Bool) (Dict (Int,Int) Tile,PanState,Form)
-defaultMapAutomaton = init (defaultMapGrid, PanListen (0, 0), drawMapView defaultMapGrid)
+                  else if press && pos `isWithin` form
+                          then let ts' = tool.apply ts $ tileForMousePos formPos pos in
+                               (ts', uncurry move formPos $ drawMapView ts', formPos, PanIgnore)
+
+                          else (ts, form, formPos, PanIgnore)
+
+-- defaultMapAutomaton :: Automaton (Tool,(Int,Int),Bool) (Dict (Int,Int) Tile,Form,(Int,Int),PanState)
+defaultMapAutomaton = init (defaultMapGrid, drawMapView defaultMapGrid, (0, 0), PanListen)
                            stepMouseOnMap
 
 -- defaultMapPane :: Signal Tool -> Signal Form
-defaultMapPane tool = lift (\(ts, pans, form) -> collage 500 500 [form])
+defaultMapPane tool = lift (\(_, form, _, _) -> collage 500 500 [form])
                            $ Automaton.run defaultMapAutomaton
                                            $ lift3 (\a b c -> (a, b, c))
                                                    tool Mouse.position Mouse.isDown
