@@ -9,6 +9,8 @@ nineSquare t (tx, ty) = Dict.fromList [((tx, ty), t TopLeft), ((tx + 1, ty), t T
 
 applyNine t ts p = Dict.union (nineSquare t p) ts
 
+applyOne t ts p = Dict.insert p t ts
+
 -- apply :: Dict (Int,Int) Tile -> (Int,Int) -> Dict (Int,Int) Tile
 pan = { name = "Pan", shortName = "Pan", size = (0-1, 0-1), apply ts p = ts }
 controls = [pan]
@@ -26,9 +28,9 @@ services = [{ name = "Police Station", shortName = "PD", size = (3, 3),
               apply = applyNine FireDept }]
 
 transports = [{ name = "Road", shortName = "Rd", size = (1, 1),
-                apply ts p = insert p Road ts },
+                apply = applyOne Road },
               { name = "Railroad", shortName = "RR", size = (1, 1),
-                apply ts p = insert p Railroad ts }]
+                apply = applyOne Railroad }]
 
 -- toolRow :: [Tool] -> (Element,[(Tool,Signal Bool)])
 toolRow tools = let (buttons, presses) = unzip $ map (Input.button . .shortName) tools in
