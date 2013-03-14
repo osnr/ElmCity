@@ -143,7 +143,7 @@ toolRow tools = let (buttons, presses) = unzip $ map (Input.button . .shortName)
 signalize tls = map (\(tool, press) -> (\prss -> (tool, prss)) <~ press) tls
 
 -- currentTool :: [(Tool,Signal Bool)] -> Signal Tool
-currentTool tls = lift fst $ merges . map (keepIf fst (pan, True)) $ signalize tls
+currentTool tls = lift fst $ merges . map (keepIf snd (pan, True)) $ signalize tls
 
 -- elementRows :: [Element]
 -- tlss :: [[(Tool,Signal Bool)]]
