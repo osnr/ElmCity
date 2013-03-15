@@ -5,8 +5,8 @@ import ToolPane
 import MapPane
 import Tiles
 
-defaultMapWidth = 10
-defaultMapHeight = 10
+defaultMapWidth = 20
+defaultMapHeight = 20
 
 defaultMapTiles = replicate defaultMapHeight
                             $ replicate defaultMapWidth Dirt

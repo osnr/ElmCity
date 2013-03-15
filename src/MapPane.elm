@@ -13,8 +13,8 @@ mapGrid rs = Dict.fromList . concat . zipCoords $ rs
 drawMapTiles ts = map (\((tx, ty), t) -> move (16 * tx) (16 * ty) $ tileToSprite t) $ Dict.toList ts
 
 -- FIXME map width & height besides 10
-drawMapView ts = let cWidth = 10 * 16 in
-                 let cHeight = 10 * 16 in
+drawMapView ts = let cWidth = 20 * 16 in
+                 let cHeight = 20 * 16 in
                  toForm (cWidth / 2, cHeight / 2) . collage cWidth cHeight $ drawMapTiles ts
 
 data PanState = PanListen | PanIgnore | PanFrom (Int,Int)
@@ -42,8 +42,9 @@ stepMouseOnMap (tool, pos, press) (ts, form, formPos, pans) =
                   then let (form', formPos', pans') = doPan form formPos pos press pans in
                        (ts, form', formPos', pans')
 
-                  else if press && pos `isWithin` form
-                          then let ts' = tool.apply ts $ tileForMousePos formPos pos in
+                  else let tPos = tileForMousePos formPos pos in
+                       if press && pos `isWithin` form
+                          then let ts' = tool.apply ts tPos in
                                (ts', uncurry move formPos $ drawMapView ts', formPos, PanIgnore)
 
                           else (ts, form, formPos, PanIgnore)
@@ -53,8 +54,24 @@ mapAutomaton rs = let g = mapGrid rs in
                   Automaton.init (g, drawMapView g, (0, 0), PanListen)
                                  stepMouseOnMap
 
--- mapPane :: [[Tile]] -> Signal Tool -> Signal Form
-mapPane rs toolS = lift (\(_, form, _, _) -> collage 500 500 [form])
-                        $ Automaton.run (mapAutomaton rs)
-                                        $ lift3 (\a b c -> (a, b, c))
-                                                toolS Mouse.position Mouse.isDown
+-- mouseMapView :: [[Tile]] -> Signal Tool -> Signal (Form,(Int,Int))
+mouseMapView rs toolS = lift (\(_, form, formPos, _) -> (form, formPos))
+                             $ Automaton.run (mapAutomaton rs)
+                                             $ lift3 (\a b c -> (a, b, c))
+                                                     toolS Mouse.position Mouse.isDown
+
+-- hoverLayer :: (Int,Int) -> (Int,Int) -> Form -> (Int,Int) -> Element
+hoverLayer (tw, th) (mx, my) form (fx, fy) =
+           let (w, h) = (tw * 16, th * 16) in
+           let roundAndRecenter fz mz = 16 * ((mz - fz) `div` 16) + fz in
+           opacity 0.5 $ collage 500 500
+                                 [move (roundAndRecenter fx mx) (roundAndRecenter fy my)
+                                       $ filled gray $ rect w h (w/2, h/2)]
+
+hoverAndCollage tool pos (form, formPos) = let view = collage 500 500 [form] in
+                                           if tool.name /= "Pan" && pos `isWithin` form
+                                              then layers [view, hoverLayer tool.size pos form formPos]
+                                                   else view
+
+-- mapPane :: [[Tile]] -> Signal Tool -> Signal Element
+mapPane rs toolS = hoverAndCollage <~ toolS ~ Mouse.position ~ (mouseMapView rs toolS)
