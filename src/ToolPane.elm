@@ -2,13 +2,15 @@ module ToolPane where
 
 import Tiles
 
--- fourSquare :: Tile -> (Int,Int) -> Dict (Int,Int) Tile
-nineSquare t (tx, ty) = Dict.fromList [((tx, ty), t TopLeft), ((tx + 1, ty), t TopCenter), ((tx + 2, ty), t TopRight),
-                                       ((tx, ty + 1), t CenterLeft), ((tx + 1, ty + 1), t Center), ((tx + 2, ty + 1), t CenterRight),
-                                       ((tx, ty + 2), t BottomLeft), ((tx + 1, ty + 2), t BottomCenter), ((tx + 2, ty + 2), t BottomRight)]
+-- nineSquare :: (Int,Int) -> [((Int,Int),Position9)]
+nineSquare (tx, ty) = [((tx, ty), TopLeft), ((tx + 1, ty), TopCenter), ((tx + 2, ty), TopRight),
+                       ((tx, ty + 1), CenterLeft), ((tx + 1, ty + 1), Center), ((tx + 2, ty + 1), CenterRight),
+                       ((tx, ty + 2), BottomLeft), ((tx + 1, ty + 2), BottomCenter), ((tx + 2, ty + 2), BottomRight)]
 
-applyNine t ts p = Dict.union (nineSquare t p) ts
+-- applyNine :: (Position9 -> Tile) -> Dict (Int,Int) Tile -> (Int,Int) -> Dict (Int,Int) Tile
+applyNine tT ts p = foldr (\(p', p9) ts' -> applyOne (tT p9) ts' p') ts $ nineSquare p
 
+-- applyOne :: Tile -> Dict (Int,Int) Tile -> (Int,Int) -> Dict (Int,Int) Tile
 applyOne t ts p = Dict.insert p t ts
 
 -- apply :: Dict (Int,Int) Tile -> (Int,Int) -> Dict (Int,Int) Tile
